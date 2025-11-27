@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remittance Calculator</title>
+    
+    <!-- Fonts: Inter for English, Noto Sans Bengali for Bangla -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Bengali:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Tailwind Config for Custom Colors/Fonts -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans Bengali', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                        },
+                        slate: {
+                            850: '#1e293b',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+
+        /* Smooth Toggle Transition */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #22c55e;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #22c55e;
+        }
+        
+        /* Glass effect class */
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .dark .glass {
+            background: rgba(30, 41, 59, 0.7);
+        }
+
+        /* Hide number input arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 transition-colors duration-300 dark:bg-slate-900 dark:text-gray-100 min-h-screen font-sans">
+
+    <!-- App Container -->
+    <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col relative shadow-2xl bg-white dark:bg-slate-850 transition-colors duration-300">
+        
+        <!-- Header -->
+        <header class="p-5 flex justify-between items-center bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-lg rounded-b-3xl z-10">
+            <div>
+                <h1 class="text-xl font-bold tracking-tight flex items-center gap-2">
+                    <i data-lucide="banknote" class="w-6 h-6"></i>
+                    <span id="app-title">RemitCalc</span>
+                </h1>
+                <p class="text-xs text-primary-100 opacity-90 mt-0.5" id="app-subtitle">Fast & Accurate FX</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="toggleLang()" class="bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-sm transition">
+                    <span class="text-xs font-bold" id="lang-btn-text">BN</span>
+                </button>
+                <button onclick="toggleTheme()" class="bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-sm transition">
+                    <i id="theme-icon" data-lucide="moon" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-5 space-y-5 -mt-2 flex flex-col">
+            
+            <!-- Rate Card -->
+            <div class="glass border border-gray-200 dark:border-slate-700 p-4 rounded-2xl shadow-sm relative">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex flex-col">
+                        <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" id="lbl-exchange-rate">Exchange Rate</span>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <span class="text-2xl font-bold text-gray-900 dark:text-white">1 € = <span id="display-rate">...</span> ৳</span>
+                            <span id="rate-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-medium">LIVE</span>
+                        </div>
+                    </div>
+                    <button onclick="openRateModal()" class="text-primary-600 hover:text-primary-700 dark:text-primary-400 p-1.5 rounded-lg hover:bg-primary-50 dark:hover:bg-slate-700 transition">
+                        <i data-lucide="settings-2" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="flex justify-between items-center text-xs text-gray-400 dark:text-gray-500">
+                    <span id="last-updated">Updating...</span>
+                    <button onclick="fetchRate()" class="flex items-center gap-1 hover:text-primary-600 transition">
+                        <i data-lucide="refresh-cw" class="w-3 h-3"></i> <span id="lbl-refresh">Refresh</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Direction Toggle -->
+            <div class="bg-gray-100 dark:bg-slate-800 p-1.5 rounded-xl flex relative">
+                <!-- Fix: Added left-1.5 to ensure correct starting position and relying on translateX for movement -->
+                <div id="slider-bg" class="absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-6px)] bg-white dark:bg-slate-600 rounded-lg shadow-sm transition-transform duration-300 transform translate-x-0"></div>
+                
+                <button onclick="setDirection('EUR_TO_BDT')" id="btn-eur-bdt" class="flex-1 relative z-10 py-2.5 text-sm font-semibold text-center rounded-lg transition-colors text-primary-700 dark:text-white">
+                    € <i data-lucide="arrow-right" class="inline w-3 h-3 mx-1"></i> ৳
+                </button>
+                <button onclick="setDirection('BDT_TO_EUR')" id="btn-bdt-eur" class="flex-1 relative z-10 py-2.5 text-sm font-semibold text-center rounded-lg transition-colors text-gray-500 dark:text-gray-400">
+                    ৳ <i data-lucide="arrow-right" class="inline w-3 h-3 mx-1"></i> €
+                </button>
+            </div>
+
+            <!-- Input Section -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5" id="lbl-send-amount">Send Amount</label>
+                <div class="relative">
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg font-bold" id="input-currency-symbol">€</span>
+                    <input type="number" id="amount-input" placeholder="0" oninput="handleInput()" class="w-full pl-10 pr-4 py-4 bg-white dark:bg-slate-800 border-2 border-transparent focus:border-primary-500 focus:ring-0 rounded-xl text-2xl font-bold shadow-sm outline-none transition-all dark:text-white placeholder-gray-300 dark:placeholder-slate-600">
+                    <button onclick="clearInput()" id="clear-btn" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 hidden">
+                        <i data-lucide="x-circle" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                
+                <!-- Quick Amount Buttons -->
+                <div class="flex gap-2 mt-3 overflow-x-auto pb-1 no-scrollbar" id="quick-buttons">
+                    <!-- Injected via JS -->
+                </div>
+            </div>
+
+            <!-- Bonus Toggle -->
+            <div class="bg-primary-50 dark:bg-slate-800/50 border border-primary-100 dark:border-slate-700 p-3.5 rounded-xl flex items-center justify-between">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-semibold text-gray-800 dark:text-gray-200" id="lbl-bonus">Govt. Bonus (2.5%)</span>
+                        <i data-lucide="info" class="w-3.5 h-3.5 text-primary-500 cursor-help" onclick="alert('Bangladesh Government incentive on remittance.')"></i>
+                    </div>
+                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5" id="bonus-desc">Bonus increases recipient amount</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="bonus-toggle" class="sr-only peer" onchange="toggleBonus()">
+                    <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
+                </label>
+            </div>
+
+            <!-- Result Box -->
+            <div class="bg-slate-900 dark:bg-black text-white p-5 rounded-2xl shadow-xl transform transition-all duration-300">
+                <p class="text-slate-400 text-xs uppercase tracking-widest font-medium mb-1" id="lbl-recipient-gets">Recipient Gets</p>
+                
+                <div class="flex items-baseline gap-2 mb-2">
+                    <span id="result-symbol" class="text-2xl font-light text-slate-400">৳</span>
+                    <span id="result-amount" class="text-4xl font-bold tracking-tight">0.00</span>
+                </div>
+
+                <!-- Breakdown -->
+                <div class="border-t border-slate-700/50 mt-3 pt-3 space-y-1">
+                    <div class="flex justify-between text-xs text-slate-400">
+                        <span id="lbl-base">Base Amount</span>
+                        <span id="breakdown-base">0.00</span>
+                    </div>
+                    <div class="flex justify-between text-xs text-primary-400">
+                        <span id="lbl-bonus-breakdown">Bonus (2.5%)</span>
+                        <span id="breakdown-bonus">+ 0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Section -->
+            <div class="pt-2">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300" id="lbl-history">Recent History</h3>
+                    <button onclick="clearHistory()" class="text-xs text-red-500 hover:text-red-600" id="lbl-clear">Clear</button>
+                </div>
+                <ul id="history-list" class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    <!-- History items injected here -->
+                    <li class="text-center text-xs text-gray-400 py-4" id="lbl-no-history">No conversions yet</li>
+                </ul>
+            </div>
+
+            <!-- Developer Credit Footer -->
+            <div class="mt-auto pt-6 pb-2 text-center">
+                <p class="text-[10px] font-medium text-gray-400 dark:text-gray-600 tracking-wider hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-300 cursor-default flex items-center justify-center gap-1">
+                    Developed by <span class="font-bold">Nahinoor Sarker</span>
+                </p>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Modal for Custom Rate -->
+    <div id="rate-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-xs mx-4 p-6 rounded-2xl shadow-2xl transform scale-95 transition-transform duration-300" id="rate-modal-content">
+            <h3 class="text-lg font-bold mb-4 dark:text-white" id="lbl-settings">Settings</h3>
+            
+            <div class="space-y-4">
+                <!-- Toggle Mode -->
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-600 dark:text-gray-300" id="lbl-use-custom">Use Custom Rate</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="custom-rate-toggle" class="sr-only peer" onchange="toggleRateMode()">
+                        <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                </div>
+
+                <!-- Custom Input -->
+                <div id="custom-input-container" class="opacity-50 pointer-events-none transition-opacity">
+                    <label class="block text-xs text-gray-500 mb-1" id="lbl-custom-rate">Custom Rate (1 € = ? ৳)</label>
+                    <input type="number" id="custom-rate-input" value="128.50" class="w-full px-3 py-2 border rounded-lg dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none">
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="closeRateModal()" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition" id="lbl-done">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- State Management ---
+        const state = {
+            rate: 130.00, // Fallback default
+            lastUpdated: null,
+            isCustomRate: false,
+            customRate: 130.00,
+            direction: 'EUR_TO_BDT', // 'EUR_TO_BDT' or 'BDT_TO_EUR'
+            amount: '',
+            bonusActive: false,
+            history: [],
+            theme: 'light',
+            lang: 'en'
+        };
+
+        // --- Localization Data ---
+        const i18n = {
+            en: {
+                title: "RemitCalc",
+                subtitle: "Fast & Accurate FX",
+                exchangeRate: "EXCHANGE RATE",
+                refresh: "Refresh",
+                live: "LIVE",
+                custom: "CUSTOM",
+                sendAmount: "Send Amount",
+                bonus: "Govt. Bonus (2.5%)",
+                bonusDescEurToBdt: "Bonus increases recipient amount",
+                bonusDescBdtToEur: "Bonus reduces EUR requirement",
+                recipientGets: "RECIPIENT GETS",
+                recipientGetsBdtToEur: "RECIPIENT GETS (EUR)",
+                base: "Base Amount",
+                bonusBreakdown: "Bonus Effect",
+                history: "Recent History",
+                clear: "Clear All",
+                noHistory: "No conversions yet",
+                settings: "Rate Settings",
+                useCustom: "Use Custom Rate",
+                customRateLbl: "Custom Rate (1 € = ? ৳)",
+                done: "Done",
+                langBtn: "BN"
+            },
+            bn: {
+                title: "রেমিট ক্যালক",
+                subtitle: "দ্রুত এবং সঠিক বিনিময়",
+                exchangeRate: "বিনিময় হার",
+                refresh: "রিফ্রেশ",
+                live: "লাইভ",
+                custom: "কাস্টম",
+                sendAmount: "পাঠানোর পরিমাণ",
+                bonus: "সরকারি বোনাস (২.৫%)",
+                bonusDescEurToBdt: "বোনাস প্রাপকের পরিমাণ বাড়ায়",
+                bonusDescBdtToEur: "বোনাস ইউরো খরচ কমায়",
+                recipientGets: "প্রাপক পাবেন",
+                recipientGetsBdtToEur: "প্রাপক পাবেন (EUR)",
+                base: "মূল পরিমাণ",
+                bonusBreakdown: "বোনাস প্রভাব",
+                history: "সাম্প্রতিক ইতিহাস",
+                clear: "সব মুছুন",
+                noHistory: "কোনো ইতিহাস নেই",
+                settings: "সেটিংস",
+                useCustom: "কাস্টম রেট ব্যবহার করুন",
+                customRateLbl: "কাস্টম রেট (১ € = ? ৳)",
+                done: "সম্পন্ন",
+                langBtn: "EN"
+            }
+        };
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadState();
+            lucide.createIcons();
+            fetchRate();
+            updateUI();
+        });
+
+        // --- API & Rate Logic ---
+        async function fetchRate() {
+            if (state.isCustomRate) return;
+
+            const rateElem = document.getElementById('display-rate');
+            const timeElem = document.getElementById('last-updated');
+            
+            timeElem.innerText = state.lang === 'en' ? 'Updating...' : 'আপডেট হচ্ছে...';
+            
+            try {
+                // Using a reliable free API
+                const res = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
+                const data = await res.json();
+                
+                if (data && data.rates && data.rates.BDT) {
+                    state.rate = data.rates.BDT;
+                    state.lastUpdated = new Date().getTime();
+                    saveState();
+                }
+            } catch (error) {
+                console.error("API Failed, using cached/default rate");
+                // Silently fail to cached rate
+            }
+            
+            updateUI();
+        }
+
+        // --- Calculation Logic (Exact per requirements) ---
+        function calculate() {
+            const currentRate = state.isCustomRate ? state.customRate : state.rate;
+            const inputVal = parseFloat(state.amount);
+
+            if (!inputVal || isNaN(inputVal)) return { final: 0, base: 0, bonusAmt: 0, symbol: '' };
+
+            let result = 0;
+            let baseResult = 0;
+            let bonusEffect = 0;
+
+            if (state.direction === 'EUR_TO_BDT') {
+                // EUR -> BDT
+                // Normal: euro * rate
+                // Bonus: baseTaka * 1.025 (Bonus increases BDT)
+                
+                baseResult = inputVal * currentRate;
+                
+                if (state.bonusActive) {
+                    result = baseResult * 1.025;
+                    bonusEffect = result - baseResult; // Positive value
+                } else {
+                    result = baseResult;
+                    bonusEffect = 0;
+                }
+                
+                return { final: result, base: baseResult, bonusAmt: bonusEffect, symbol: '৳' };
+
+            } else {
+                // BDT -> EUR
+                // Normal: taka / rate
+                // Bonus: (taka / rate) * 0.975 (Bonus decreases EUR required/received)
+                // Note: Requirement says "baseEuro = taka / rate; finalEuro = baseEuro * 0.975"
+                
+                baseResult = inputVal / currentRate;
+                
+                if (state.bonusActive) {
+                    result = baseResult * 0.975;
+                    bonusEffect = result - baseResult; // This will be negative, showing reduction
+                } else {
+                    result = baseResult;
+                    bonusEffect = 0;
+                }
+
+                return { final: result, base: baseResult, bonusAmt: bonusEffect, symbol: '€' };
+            }
+        }
+
+        // --- UI Updates ---
+        function updateUI() {
+            const t = i18n[state.lang];
+            const isEurToBdt = state.direction === 'EUR_TO_BDT';
+            const currentRate = state.isCustomRate ? state.customRate : state.rate;
+
+            // Header & Labels
+            document.getElementById('app-title').innerText = t.title;
+            document.getElementById('app-subtitle').innerText = t.subtitle;
+            document.getElementById('lang-btn-text').innerText = t.langBtn;
+            document.getElementById('lbl-exchange-rate').innerText = t.exchangeRate;
+            document.getElementById('lbl-refresh').innerText = t.refresh;
+            document.getElementById('lbl-send-amount').innerText = t.sendAmount;
+            document.getElementById('lbl-bonus').innerText = t.bonus;
+            document.getElementById('bonus-desc').innerText = isEurToBdt ? t.bonusDescEurToBdt : t.bonusDescBdtToEur;
+            document.getElementById('lbl-recipient-gets').innerText = isEurToBdt ? t.recipientGets : t.recipientGetsBdtToEur;
+            document.getElementById('lbl-base').innerText = t.base;
+            document.getElementById('lbl-bonus-breakdown').innerText = t.bonusBreakdown;
+            document.getElementById('lbl-history').innerText = t.history;
+            document.getElementById('lbl-clear').innerText = t.clear;
+            document.getElementById('lbl-settings').innerText = t.settings;
+            document.getElementById('lbl-use-custom').innerText = t.useCustom;
+            document.getElementById('lbl-custom-rate').innerText = t.customRateLbl;
+            document.getElementById('lbl-done').innerText = t.done;
+
+            // Rate Display
+            document.getElementById('display-rate').innerText = currentRate.toFixed(2);
+            document.getElementById('rate-badge').innerText = state.isCustomRate ? t.custom : t.live;
+            document.getElementById('rate-badge').className = state.isCustomRate 
+                ? "text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 font-medium"
+                : "text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-medium";
+            
+            // Last Updated Time
+            if (state.lastUpdated) {
+                const date = new Date(state.lastUpdated);
+                document.getElementById('last-updated').innerText = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+
+            // Direction Toggles
+            const slider = document.getElementById('slider-bg');
+            const btnEur = document.getElementById('btn-eur-bdt');
+            const btnBdt = document.getElementById('btn-bdt-eur');
+            
+            // FIX: Removed manual 'left' manipulation, using transform only
+            if (isEurToBdt) {
+                slider.style.transform = 'translateX(0)';
+                btnEur.className = "flex-1 relative z-10 py-2.5 text-sm font-semibold text-center rounded-lg transition-colors text-primary-700 dark:text-white";
+                btnBdt.className = "flex-1 relative z-10 py-2.5 text-sm font-semibold text-center rounded-lg transition-colors text-gray-500 dark:text-gray-400";
+                document.getElementById('input-currency-symbol').innerText = "€";
+            } else {
+                slider.style.transform = 'translateX(100%)'; 
+                // Fix: Do not set slider.style.left manually here
+                
+                btnEur.className = "flex-1 relative z-10 py-2.5 text-sm font-semibold text-center rounded-lg transition-colors text-gray-500 dark:text-gray-400";
+                btnBdt.className = "flex-1 relative z-10 py-2.5 text-sm font-semibold text-center rounded-lg transition-colors text-primary-700 dark:text-white";
+                document.getElementById('input-currency-symbol').innerText = "৳";
+            }
+            
+            // Input
+            const input = document.getElementById('amount-input');
+            input.value = state.amount;
+            document.getElementById('clear-btn').style.display = state.amount ? 'block' : 'none';
+
+            // Bonus Toggle
+            document.getElementById('bonus-toggle').checked = state.bonusActive;
+
+            // Quick Buttons
+            renderQuickButtons();
+
+            // Calculation & Result
+            const calcData = calculate();
+            document.getElementById('result-symbol').innerText = calcData.symbol;
+            
+            // Formatting numbers
+            const fmt = (num) => num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            
+            document.getElementById('result-amount').innerText = fmt(calcData.final);
+            document.getElementById('breakdown-base').innerText = calcData.symbol + " " + fmt(calcData.base);
+            
+            const bonusSign = calcData.bonusAmt >= 0 ? "+" : "";
+            const bonusColor = calcData.bonusAmt > 0 ? "text-primary-500" : (calcData.bonusAmt < 0 ? "text-orange-500" : "text-gray-400");
+            const bonusElem = document.getElementById('breakdown-bonus');
+            bonusElem.innerText = `${bonusSign} ${fmt(calcData.bonusAmt)}`;
+            bonusElem.className = bonusColor + " font-medium";
+
+            // Theme
+            if (state.theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                document.getElementById('theme-icon').setAttribute('data-lucide', 'sun');
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('theme-icon').setAttribute('data-lucide', 'moon');
+            }
+            lucide.createIcons();
+
+            // Modal State
+            document.getElementById('custom-rate-toggle').checked = state.isCustomRate;
+            const customContainer = document.getElementById('custom-input-container');
+            if (state.isCustomRate) {
+                customContainer.classList.remove('opacity-50', 'pointer-events-none');
+            } else {
+                customContainer.classList.add('opacity-50', 'pointer-events-none');
+            }
+
+            renderHistory();
+        }
+
+        function renderQuickButtons() {
+            const container = document.getElementById('quick-buttons');
+            container.innerHTML = '';
+            
+            const amounts = state.direction === 'EUR_TO_BDT' 
+                ? [10, 50, 100, 500] 
+                : [1000, 5000, 10000, 20000];
+
+            amounts.forEach(amt => {
+                const btn = document.createElement('button');
+                btn.className = "bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-slate-600 hover:border-primary-200 transition whitespace-nowrap";
+                btn.innerText = `+${amt}`;
+                btn.onclick = () => {
+                    const current = parseFloat(state.amount) || 0;
+                    state.amount = current + amt;
+                    handleInput(true); // true = skip event value read
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+            
+            if (state.history.length === 0) {
+                const empty = document.createElement('li');
+                empty.className = "text-center text-xs text-gray-400 py-4 italic";
+                empty.innerText = i18n[state.lang].noHistory;
+                list.appendChild(empty);
+                return;
+            }
+
+            // Using slice().reverse() so most recent is top, but index needs handling
+            // Better to iterate normally but prepend or handle deletion by ID.
+            // For simplicity, we'll reverse in display but use correct index for deletion.
+            // Since we want newest first, let's map it.
+            
+            // Create a copy reversed for display
+            const displayHistory = state.history.slice().reverse();
+
+            displayHistory.forEach((item, displayIndex) => {
+                // Real index in state.history array (since we reversed it for display)
+                const realIndex = state.history.length - 1 - displayIndex;
+                
+                const li = document.createElement('li');
+                li.className = "flex justify-between items-center text-sm p-2 bg-gray-50 dark:bg-slate-800/50 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition group";
+                li.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <button onclick="deleteHistoryItem(${realIndex})" class="text-gray-300 hover:text-red-500 transition" title="Delete">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                        <div class="flex flex-col">
+                            <span class="font-medium dark:text-gray-200">${item.fromAmt} ${item.fromSym} <i data-lucide="arrow-right" class="inline w-3 h-3 text-gray-400"></i></span>
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-end">
+                        <span class="font-bold text-gray-800 dark:text-white">${item.toAmt} ${item.toSym}</span>
+                        <span class="text-[10px] text-gray-400">${item.bonus ? 'With Bonus' : 'No Bonus'}</span>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+            lucide.createIcons();
+        }
+
+        // --- Event Handlers ---
+        function setDirection(dir) {
+            state.direction = dir;
+            state.amount = ''; // Clear amount on switch for safety/UX
+            updateUI();
+            saveState();
+        }
+
+        function handleInput(isManualSet = false) {
+            if (!isManualSet) {
+                const el = document.getElementById('amount-input');
+                state.amount = el.value;
+            }
+            
+            // Debounce history addition
+            if (state.debounceTimer) clearTimeout(state.debounceTimer);
+            
+            state.debounceTimer = setTimeout(() => {
+                if (parseFloat(state.amount) > 0) addToHistory();
+            }, 2000);
+
+            updateUI();
+        }
+
+        function clearInput() {
+            state.amount = '';
+            updateUI();
+        }
+
+        function toggleBonus() {
+            state.bonusActive = !state.bonusActive;
+            updateUI();
+            saveState(); // Re-calculate result immediately
+        }
+
+        function toggleTheme() {
+            state.theme = state.theme === 'light' ? 'dark' : 'light';
+            updateUI();
+            saveState();
+        }
+
+        function toggleLang() {
+            state.lang = state.lang === 'en' ? 'bn' : 'en';
+            updateUI();
+            saveState();
+        }
+
+        // --- History Logic ---
+        function addToHistory() {
+            const res = calculate();
+            if (res.final === 0) return;
+
+            const fromSym = state.direction === 'EUR_TO_BDT' ? '€' : '৳';
+            const historyItem = {
+                fromAmt: parseFloat(state.amount).toLocaleString('en-US'),
+                fromSym: fromSym,
+                toAmt: res.final.toLocaleString('en-US', {maximumFractionDigits: 2}),
+                toSym: res.symbol,
+                bonus: state.bonusActive,
+                timestamp: Date.now()
+            };
+
+            // Keep only last 20
+            state.history.push(historyItem);
+            if (state.history.length > 20) state.history.shift();
+            
+            saveState();
+            renderHistory();
+        }
+
+        function deleteHistoryItem(index) {
+            // Remove item at specific index
+            state.history.splice(index, 1);
+            saveState();
+            renderHistory();
+        }
+
+        function clearHistory() {
+            state.history = [];
+            saveState();
+            renderHistory();
+        }
+
+        // --- Modal Logic ---
+        function openRateModal() {
+            const modal = document.getElementById('rate-modal');
+            const content = document.getElementById('rate-modal-content');
+            modal.classList.remove('hidden');
+            // Trigger animation
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+                content.classList.add('scale-100');
+            }, 10);
+            
+            // Set input value
+            document.getElementById('custom-rate-input').value = state.customRate;
+        }
+
+        function closeRateModal() {
+            const modal = document.getElementById('rate-modal');
+            const content = document.getElementById('rate-modal-content');
+            
+            // Save Input
+            const val = parseFloat(document.getElementById('custom-rate-input').value);
+            if (val && !isNaN(val)) state.customRate = val;
+            
+            // Animation out
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                updateUI();
+                saveState();
+            }, 300);
+        }
+
+        function toggleRateMode() {
+            state.isCustomRate = !state.isCustomRate;
+            // Update modal UI immediately without closing
+            const customContainer = document.getElementById('custom-input-container');
+            const badge = document.getElementById('rate-badge');
+            
+            if (state.isCustomRate) {
+                customContainer.classList.remove('opacity-50', 'pointer-events-none');
+            } else {
+                customContainer.classList.add('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        // --- Persistence ---
+        function saveState() {
+            const dataToSave = {
+                ...state,
+                debounceTimer: null // Don't save timer
+            };
+            localStorage.setItem('remitCalcState', JSON.stringify(dataToSave));
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('remitCalcState');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                // Merge saved state with defaults (preserves structure)
+                Object.keys(parsed).forEach(key => {
+                    if (key !== 'amount') // Don't reload amount
+                        state[key] = parsed[key];
+                });
+            }
+        }
+    </script>
+</body>
+</html>
