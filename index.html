@@ -128,7 +128,6 @@
 
             <!-- Direction Toggle -->
             <div class="bg-gray-100 dark:bg-slate-800 p-1.5 rounded-xl flex relative">
-                <!-- Fix: Added left-1.5 to ensure correct starting position and relying on translateX for movement -->
                 <div id="slider-bg" class="absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-6px)] bg-white dark:bg-slate-600 rounded-lg shadow-sm transition-transform duration-300 transform translate-x-0"></div>
                 
                 <button onclick="setDirection('EUR_TO_BDT')" id="btn-eur-bdt" class="flex-1 relative z-10 py-2.5 text-sm font-semibold text-center rounded-lg transition-colors text-primary-700 dark:text-white">
@@ -243,6 +242,66 @@
         </div>
     </div>
 
+    <!-- Modal for History Details (NEW) -->
+    <div id="history-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-850 w-full max-w-xs mx-4 p-6 rounded-2xl shadow-2xl transform scale-95 transition-transform duration-300" id="history-modal-content">
+            
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold dark:text-white" id="lbl-history-details">Transaction Details</h3>
+                <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <!-- Details Container -->
+            <div class="space-y-4">
+                
+                <!-- Main Amount -->
+                <div class="text-center p-4 bg-gray-50 dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1" id="lbl-modal-total">Total Amount</p>
+                    <div class="flex items-center justify-center gap-2">
+                        <span id="hist-modal-symbol" class="text-xl font-light text-gray-400">৳</span>
+                        <span id="hist-modal-amount" class="text-3xl font-bold text-gray-900 dark:text-white">0.00</span>
+                    </div>
+                </div>
+
+                <!-- Breakdown Grid -->
+                <div class="space-y-3">
+                    
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-500 dark:text-gray-400" id="lbl-modal-sent">Sent Amount</span>
+                        <span class="font-semibold text-gray-800 dark:text-gray-200" id="hist-modal-sent">0.00</span>
+                    </div>
+
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-500 dark:text-gray-400" id="lbl-modal-rate">Exchange Rate</span>
+                        <span class="font-semibold text-gray-800 dark:text-gray-200" id="hist-modal-rate">1 € = 0 ৳</span>
+                    </div>
+
+                    <div class="h-px bg-gray-100 dark:bg-slate-700"></div>
+
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-500 dark:text-gray-400" id="lbl-modal-base">Base Amount</span>
+                        <span class="font-medium text-gray-700 dark:text-gray-300" id="hist-modal-base">0.00</span>
+                    </div>
+
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-500 dark:text-gray-400" id="lbl-modal-bonus">Govt. Bonus</span>
+                        <span class="font-medium text-primary-600 dark:text-primary-400" id="hist-modal-bonus">+ 0.00</span>
+                    </div>
+
+                    <div class="flex justify-between items-center text-xs text-gray-400 mt-4 pt-2 border-t border-gray-100 dark:border-slate-700">
+                        <span id="hist-modal-date">Date</span>
+                        <span id="hist-modal-time">Time</span>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+
     <!-- JavaScript Logic -->
     <script>
         // --- State Management ---
@@ -283,7 +342,14 @@
                 useCustom: "Use Custom Rate",
                 customRateLbl: "Custom Rate (1 € = ? ৳)",
                 done: "Done",
-                langBtn: "BN"
+                langBtn: "BN",
+                // Modal specific
+                historyDetails: "Transaction Details",
+                totalAmount: "TOTAL AMOUNT",
+                sentAmount: "Sent Amount",
+                modalRate: "Exchange Rate",
+                modalBase: "Base Amount",
+                modalBonus: "Govt. Bonus",
             },
             bn: {
                 title: "রেমিট ক্যালক",
@@ -307,7 +373,14 @@
                 useCustom: "কাস্টম রেট ব্যবহার করুন",
                 customRateLbl: "কাস্টম রেট (১ € = ? ৳)",
                 done: "সম্পন্ন",
-                langBtn: "EN"
+                langBtn: "EN",
+                // Modal specific
+                historyDetails: "লেনদেনের বিবরণ",
+                totalAmount: "সর্বমোট",
+                sentAmount: "পাঠানো হয়েছে",
+                modalRate: "বিনিময় হার",
+                modalBase: "মূল পরিমাণ",
+                modalBonus: "সরকারি বোনাস",
             }
         };
 
@@ -359,9 +432,6 @@
 
             if (state.direction === 'EUR_TO_BDT') {
                 // EUR -> BDT
-                // Normal: euro * rate
-                // Bonus: baseTaka * 1.025 (Bonus increases BDT)
-                
                 baseResult = inputVal * currentRate;
                 
                 if (state.bonusActive) {
@@ -376,10 +446,6 @@
 
             } else {
                 // BDT -> EUR
-                // Normal: taka / rate
-                // Bonus: (taka / rate) * 0.975 (Bonus decreases EUR required/received)
-                // Note: Requirement says "baseEuro = taka / rate; finalEuro = baseEuro * 0.975"
-                
                 baseResult = inputVal / currentRate;
                 
                 if (state.bonusActive) {
@@ -419,6 +485,15 @@
             document.getElementById('lbl-custom-rate').innerText = t.customRateLbl;
             document.getElementById('lbl-done').innerText = t.done;
 
+            // Modal Labels
+            document.getElementById('lbl-history-details').innerText = t.historyDetails;
+            document.getElementById('lbl-modal-total').innerText = t.totalAmount;
+            document.getElementById('lbl-modal-sent').innerText = t.sentAmount;
+            document.getElementById('lbl-modal-rate').innerText = t.modalRate;
+            document.getElementById('lbl-modal-base').innerText = t.modalBase;
+            document.getElementById('lbl-modal-bonus').innerText = t.modalBonus;
+
+
             // Rate Display
             document.getElementById('display-rate').innerText = currentRate.toFixed(2);
             document.getElementById('rate-badge').innerText = state.isCustomRate ? t.custom : t.live;
@@ -437,7 +512,6 @@
             const btnEur = document.getElementById('btn-eur-bdt');
             const btnBdt = document.getElementById('btn-bdt-eur');
             
-            // FIX: Removed manual 'left' manipulation, using transform only
             if (isEurToBdt) {
                 slider.style.transform = 'translateX(0)';
                 btnEur.className = "flex-1 relative z-10 py-2.5 text-sm font-semibold text-center rounded-lg transition-colors text-primary-700 dark:text-white";
@@ -445,8 +519,6 @@
                 document.getElementById('input-currency-symbol').innerText = "€";
             } else {
                 slider.style.transform = 'translateX(100%)'; 
-                // Fix: Do not set slider.style.left manually here
-                
                 btnEur.className = "flex-1 relative z-10 py-2.5 text-sm font-semibold text-center rounded-lg transition-colors text-gray-500 dark:text-gray-400";
                 btnBdt.className = "flex-1 relative z-10 py-2.5 text-sm font-semibold text-center rounded-lg transition-colors text-primary-700 dark:text-white";
                 document.getElementById('input-currency-symbol').innerText = "৳";
@@ -534,23 +606,22 @@
                 return;
             }
 
-            // Using slice().reverse() so most recent is top, but index needs handling
-            // Better to iterate normally but prepend or handle deletion by ID.
-            // For simplicity, we'll reverse in display but use correct index for deletion.
-            // Since we want newest first, let's map it.
-            
-            // Create a copy reversed for display
+            // Using slice().reverse() so most recent is top
             const displayHistory = state.history.slice().reverse();
 
             displayHistory.forEach((item, displayIndex) => {
-                // Real index in state.history array (since we reversed it for display)
+                // Real index in state.history array
                 const realIndex = state.history.length - 1 - displayIndex;
                 
                 const li = document.createElement('li');
-                li.className = "flex justify-between items-center text-sm p-2 bg-gray-50 dark:bg-slate-800/50 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition group";
+                li.className = "flex justify-between items-center text-sm p-2 bg-gray-50 dark:bg-slate-800/50 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition group cursor-pointer border border-transparent hover:border-primary-200 dark:hover:border-slate-600";
+                
+                // Click handler now opens modal
+                li.onclick = () => openHistoryDetails(realIndex);
+
                 li.innerHTML = `
                     <div class="flex items-center gap-3">
-                        <button onclick="deleteHistoryItem(${realIndex})" class="text-gray-300 hover:text-red-500 transition" title="Delete">
+                        <button onclick="event.stopPropagation(); deleteHistoryItem(${realIndex})" class="text-gray-300 hover:text-red-500 transition p-1 hover:bg-red-50 dark:hover:bg-red-900/30 rounded" title="Delete">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                         <div class="flex flex-col">
@@ -565,6 +636,60 @@
                 list.appendChild(li);
             });
             lucide.createIcons();
+        }
+
+        // --- NEW: History Details Modal ---
+        function openHistoryDetails(index) {
+            const item = state.history[index];
+            if (!item) return;
+
+            // Populate Data
+            document.getElementById('hist-modal-symbol').innerText = item.toSym;
+            document.getElementById('hist-modal-amount').innerText = item.toAmt;
+            
+            document.getElementById('hist-modal-sent').innerText = `${item.fromAmt} ${item.fromSym}`;
+            
+            // Rate logic (handle old items without rate)
+            const rate = item.rate || state.rate; // Fallback if old history
+            document.getElementById('hist-modal-rate').innerText = `1 € = ${rate.toFixed(2)} ৳`;
+            
+            // Base Amount (handle old items)
+            const baseAmt = item.baseAmt ? parseFloat(item.baseAmt).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '---';
+            const baseSym = item.toSym; // Result is always in toSym
+            document.getElementById('hist-modal-base').innerText = `${baseSym} ${baseAmt}`;
+
+            // Bonus Amount
+            const bonusAmt = item.bonusAmt ? parseFloat(item.bonusAmt).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0.00';
+            const bonusSign = item.bonusAmt >= 0 ? "+" : "";
+            document.getElementById('hist-modal-bonus').innerText = `${bonusSign} ${bonusAmt}`;
+            
+            // Date
+            const d = new Date(item.timestamp);
+            document.getElementById('hist-modal-date').innerText = d.toLocaleDateString();
+            document.getElementById('hist-modal-time').innerText = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            // Show Modal
+            const modal = document.getElementById('history-modal');
+            const content = document.getElementById('history-modal-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+                content.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeHistoryModal() {
+            const modal = document.getElementById('history-modal');
+            const content = document.getElementById('history-modal-content');
+            
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
         }
 
         // --- Event Handlers ---
@@ -619,6 +744,8 @@
             const res = calculate();
             if (res.final === 0) return;
 
+            const currentRate = state.isCustomRate ? state.customRate : state.rate;
+
             const fromSym = state.direction === 'EUR_TO_BDT' ? '€' : '৳';
             const historyItem = {
                 fromAmt: parseFloat(state.amount).toLocaleString('en-US'),
@@ -626,6 +753,10 @@
                 toAmt: res.final.toLocaleString('en-US', {maximumFractionDigits: 2}),
                 toSym: res.symbol,
                 bonus: state.bonusActive,
+                // NEW FIELDS for details
+                rate: currentRate,
+                baseAmt: res.base,
+                bonusAmt: res.bonusAmt,
                 timestamp: Date.now()
             };
 
